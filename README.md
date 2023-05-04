@@ -1,47 +1,11 @@
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.AdminClientConfig;
-import org.apache.kafka.clients.admin.ConsumerGroupListing;
-import org.apache.kafka.clients.admin.ListConsumerGroupsResult;
-import org.apache.kafka.common.KafkaFuture;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.kafka.clients.consumer.*;
+Using a single consumer group to consume from multiple topics can lead to a number of issues:
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
+1. Unbalanced consumption: Different topics can have different message rates and patterns, and if they are all consumed by the same consumer group, it can lead to unbalanced consumption. Some topics may be heavily consumed, while others may not be consumed at all.
 
-public class KafkaAdminClientExample {
+2. Message ordering: If multiple topics are consumed by a single consumer group, the order of messages across topics may become interleaved and difficult to manage. This can be particularly problematic if message ordering is important for downstream processing.
 
-    private static final String KAFKA_BOOTSTRAP_SERVERS = "localhost:9092";
-    private static final String TOPIC_NAME = "test-topic";
+3. Difficulty in troubleshooting: If multiple topics are consumed by a single consumer group, it can be difficult to troubleshoot issues related to message consumption. For example, if there is an issue with one of the topics, it may be difficult to isolate and diagnose the issue.
 
-    public static void main(String[] args) throws InterruptedException, ExecutionException {
-        // Create admin client properties
-        Properties properties = new Properties();
-        properties.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS);
+4. Lack of flexibility: Using a single consumer group for multiple topics can limit the flexibility of the system. For example, if you want to change the consumer group configuration for one topic, you may need to make the same changes for all the other topics as well.
 
-        // Create admin client instance
-        try (AdminClient adminClient = AdminClient.create(properties)) {
-
-            // Get list of consumer groups
-            ListConsumerGroupsResult listConsumerGroupsResult = adminClient.listConsumerGroups();
-            KafkaFuture<Collection<ConsumerGroupListing>> consumerGroupListings = listConsumerGroupsResult.all();
-            Set<String> consumerGroups = consumerGroupListings.get().stream().map(ConsumerGroupListing::groupId).collect(Collectors.toSet());
-
-            // Print consumer group IDs
-            System.out.println("Consumer groups consuming from topic " + TOPIC_NAME + ":");
-            for (String consumerGroup : consumerGroups) {
-                if (adminClient.describeConsumerGroup(consumerGroup).all().get().stream()
-                        .flatMap(consumerGroupDescription -> consumerGroupDescription.members().stream())
-                        .flatMap(consumerGroupMember -> consumerGroupMember.assignment().topicPartitions().stream())
-                        .anyMatch(topicPartition -> topicPartition.topic().equals(TOPIC_NAME))) {
-                    System.out.println(consumerGroup);
-                }
-            }
-        }
-    }
-}
+In general, it is better to use separate consumer groups for each topic, as this can help ensure that messages are consumed in a balanced manner and that message ordering is preserved. This can also make it easier to troubleshoot issues and provide greater flexibility in managing the system.
