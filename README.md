@@ -1,11 +1,26 @@
-Using a single consumer group to consume from multiple topics can lead to a number of issues:
+Properties props = new Properties();
+props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka-broker1:9092,kafka-broker2:9092");
+AdminClient adminClient = AdminClient.create(props);
 
-1. Unbalanced consumption: Different topics can have different message rates and patterns, and if they are all consumed by the same consumer group, it can lead to unbalanced consumption. Some topics may be heavily consumed, while others may not be consumed at all.
+ListTopicsResult topicsResult = adminClient.listTopics();
+Set<String> topicNames = topicsResult.names().get();
 
-2. Message ordering: If multiple topics are consumed by a single consumer group, the order of messages across topics may become interleaved and difficult to manage. This can be particularly problematic if message ordering is important for downstream processing.
+long totalMessages = 0;
 
-3. Difficulty in troubleshooting: If multiple topics are consumed by a single consumer group, it can be difficult to troubleshoot issues related to message consumption. For example, if there is an issue with one of the topics, it may be difficult to isolate and diagnose the issue.
+for (String topicName : topicNames) {
+    Map<String, TopicDescription> topicDescriptions = adminClient.describeTopics(Collections.singleton(topicName)).all().get();
+    int numPartitions = topicDescriptions.get(topicName).partitions().size();
+    List<TopicPartition> partitions = new ArrayList<>();
+    for (int i = 0; i < numPartitions; i++) {
+        partitions.add(new TopicPartition(topicName, i));
+    }
+    Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> offsets = adminClient.listOffsets(new ListOffsetsOptions().listMode(ListOffsetsRequest.ListOffsetsMode.LATEST), partitions).partitionsOffset().get();
 
-4. Lack of flexibility: Using a single consumer group for multiple topics can limit the flexibility of the system. For example, if you want to change the consumer group configuration for one topic, you may need to make the same changes for all the other topics as well.
+    for (ListOffsetsResult.ListOffsetsResultInfo offset : offsets.values()) {
+        totalMessages += offset.offset();
+    }
+}
 
-In general, it is better to use separate consumer groups for each topic, as this can help ensure that messages are consumed in a balanced manner and that message ordering is preserved. This can also make it easier to troubleshoot issues and provide greater flexibility in managing the system.
+adminClient.close();
+
+System.out.println("Total messages: " + totalMessages);
