@@ -1,49 +1,68 @@
+## Slide 1
+
+**Observability in Microservices with OpenTelemetry**
 
 
-**Title: Introduction to OpenTelemetry in Java Microservices**
 
-**Duration:** Approximately 60 minutes (can be adjusted based on your session's time slot)
+*Speaker Notes*
+In this talk, we'll delve into the world of observability in microservices architectures. We'll explore the challenges of monitoring and troubleshooting these distributed systems and how OpenTelemetry emerges as a powerful solution. We'll cover the core concepts of observability, the benefits of OpenTelemetry, and its practical application in microservices environments.
 
-**Introduction:**
-- Briefly introduce yourself and your role as a senior developer with experience in OpenTelemetry.
-- Explain the purpose of the brown bag session and the topics you will cover.
+## Slide 2
 
-**Section 1: Overview of Distributed Tracing and Monitoring**
-- Define distributed tracing and its importance in microservices architecture.
-- Explain the benefits of monitoring and observability in distributed systems.
+**What are Microservices?**
 
-**Section 2: Introduction to OpenTelemetry**
-- Describe what OpenTelemetry is and its role in application instrumentation.
-- Highlight the key features and components of OpenTelemetry.
 
-**Section 3: Setting Up OpenTelemetry in Java Microservices**
-- Walk through the steps to add OpenTelemetry to a Java-based microservice.
-- Discuss the various instrumentation options and how to choose the appropriate ones.
 
-**Section 4: Implementing Distributed Tracing**
-- Explain the concept of distributed tracing and how OpenTelemetry facilitates it.
-- Demonstrate how to trace requests across microservices using OpenTelemetry.
+* Microservices are an architectural style for building applications as a collection of small, independent services.
+* Each service focuses on a specific business capability and has its own lifecycle.
+* Services communicate with each other through APIs.
 
-**Section 5: Capturing Metrics with OpenTelemetry**
-- Discuss the importance of capturing metrics for performance monitoring.
-- Show how to collect metrics using OpenTelemetry in Java microservices.
+*Speaker Notes*
+Microservices offer several advantages over monolithic architectures, including scalability, maintainability, and fault isolation. However, their distributed nature also presents challenges for monitoring and troubleshooting. Traditional monitoring approaches that focus on individual services can leave blind spots when it comes to understanding how these services interact with each other.
 
-**Section 6: Exporting and Visualizing Data**
-- Introduce different data exporters and explain their purposes (e.g., Jaeger, Prometheus).
-- Demonstrate how to visualize tracing and metrics data using popular observability tools.
+## Slide 3
 
-**Section 7: Best Practices and Common Pitfalls**
-- Share best practices for effectively using OpenTelemetry in real-world scenarios.
-- Highlight common pitfalls to avoid and troubleshooting tips.
+**Challenges of Observability in Microservices**
 
-**Section 8: Q&A and Open Discussion**
-- Open the floor to questions from the audience.
-- Encourage participants to share their experiences or challenges related to OpenTelemetry.
 
-**Conclusion:**
-- Recap the key takeaways from the session.
-- Thank the participants for their time and engagement.
 
-**Additional Resources:**
-- Provide links to official OpenTelemetry documentation, relevant blog posts, and other useful resources.
+* Distributed nature: Tracing requests across multiple services can be complex.
+* Increased complexity: More moving parts mean more potential points of failure.
+* Log explosion: Each service generates logs, leading to a massive amount of data to analyze.
+* Siloed data: Data from different services is often stored separately, making it difficult to get a holistic view.
+
+*Speaker Notes*
+The distributed nature of microservices makes it difficult to track requests as they flow through the system. This can make it challenging to pinpoint the source of errors and performance bottlenecks. Additionally, the increased complexity of microservices architectures leads to more potential points of failure. Each service needs to be monitored individually, and the interactions between services also need to be tracked. Furthermore, microservices generate a large amount of log data. Managing and analyzing this data effectively can be a significant challenge. Finally, data from different services is often stored in separate silos, making it difficult to get a holistic view of the system's health and performance.
+
+## Slide 4
+
+**What is Observability?**
+
+
+
+* The ability to understand the internal state of a system by examining its outputs.
+* Requires three pillars: metrics, logs, and traces.
+* Metrics: Quantitative data about the system's health and performance (e.g., CPU usage, memory usage, request latency).
+* Logs: Textual events or messages generated by the system.
+* Traces: Distributed tracing records the path of a request across all services involved.
+
+*Speaker Notes*
+Observability is the ability to understand the internal state of a system by examining its outputs. It's essential for effectively monitoring and troubleshooting microservices architectures. Observability relies on three key pillars: metrics, logs, and traces. Metrics provide quantitative data about the system's health and performance, such as CPU usage, memory usage, and request latency. Logs are textual events or messages generated by the system, which can provide insights into its behavior. Traces record the path of a request across all services involved in handling it, allowing you to see how the request flows through the system and identify potential bottlenecks.
+
+## Slide 5
+
+**Introducing OpenTelemetry**
+
+
+
+* OpenTelemetry is a vendor-neutral framework for generating, collecting, and exporting telemetry data (metrics, logs, and traces).
+* Provides a unified API for instrumenting applications regardless of language or runtime environment.
+* Aims to simplify observability by offering a single set of APIs and tools.
+
+*Speaker Notes*
+OpenTelemetry is a game-changer in the world of observability. It's a vendor-neutral framework that provides a unified API for generating, collecting, and exporting telemetry data (metrics, logs, and traces) from your applications. This means you can instrument your microservices using the same APIs regardless of the programming language or runtime environment they're built on. OpenTelemetry streamlines observability by eliminating the need to learn and use different vendor-specific tools for each service. This not only simplifies development but also makes it easier to collect and analyze data from all your microservices in a central location.
+
+## Slide 6
+
+**Benefits of OpenTelemetry**
 
