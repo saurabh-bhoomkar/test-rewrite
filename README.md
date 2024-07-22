@@ -1,42 +1,48 @@
-@Component
-public class DataProcessor {
+import org.apache.xerces.dom.DOMXSDocument;
+import org.apache.xerces.parsers.DOMParser;
+import org.apache.xerces.xpointer.XPointerFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.xml.sax.SAXException;
 
-    @Autowired
-    private StreamsBuilderFactory streamsBuilderFactory;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
 
-    @Bean
-    public KStream<String, String> processStream() {
-        // Configure Kafka consumer and producer properties (refer to Spring Kafka docs)
-        Map<String, Object> consumerProps = consumerProperties();
-        Map<String, Object> producerProps = producerProperties();
+public class ModifyXSD {
 
-        // Build the Kafka Streams topology
-        KStreamBuilder builder = streamsBuilderFactory.getBuilder();
-        KStream<String, String> stream = builder.stream("topic-A", Consumed.with(Serdes.String(), Serdes.String()));
+    public static void main(String[] args) throws ParserConfigurationException, SAXException {
 
-        // Process the data (modify specific parts)
-        KStream<String, String> processedStream = stream.map((key, value) -> {
-            // Deserialize value to DataHolder object
-            DataHolder dataHolder = JsonNodeDeserializer.deserialize(value, DataHolder.class);
+        // Replace with your XSD file path
+        String xsdFilePath = "path/to/your/file.xsd";
+        String elementTypeToModify = " specificElementType "; // Replace with the element type
 
-            // Implement your data processing logic here
-            // Modify data in the DataHolder object
+        // Parse the XSD
+        DOMParser parser = new DOMParser();
+        parser.setProperty(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        parser.parse(xsdFilePath);
+        Document doc = parser.getDocument();
 
-            // Create a ProcessedDataHolder object
-            ProcessedDataHolder processedDataHolder = new ProcessedDataHolder();
-            // Map data from DataHolder to ProcessedDataHolder
+        // Modify elements of specific type
+        modifyElements(doc, elementTypeToModify);
 
-            // Serialize ProcessedDataHolder to String
-            String processedValue = JsonNodeSerializer.serialize(processedDataHolder);
-
-            return new KeyValue<>(key, processedValue);
-        });
-
-        // Write the processed data to topic B
-        processedStream.to("topic-B", Produced.with(Serdes.String(), Serdes.String()));
-
-        return processedStream;
+        // Write the modified XSD (implementation omitted for brevity)
+        // You can use techniques like Transformer API to write the modified doc to a file
     }
 
-    // Define consumer and producer property configuration methods (optional)
+    private static void modifyElements(Document doc, String elementType) {
+        XPointerFactory pointerFactory = XPointerFactory.newInstance();
+        DOMXSDocument xsDoc = (DOMXSDocument) doc;
+
+        // Find all elements of the specified type using XPath
+        String xpathExpression = "//" + elementType;
+        try {
+            for (Element element : (Iterable<Element>) pointerFactory.newXPointer(xpathExpression)
+                    .evaluate(xsDoc, XPathConstants.NODESET)) {
+                // Modify the element here (e.g., change attributes)
+                // element.setAttribute("minOccurs", "2"); // Example modification
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
