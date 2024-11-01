@@ -1,57 +1,151 @@
-To store multiple X.509 certificates in DER format in a single file, you can convert each individual certificate into DER format and then concatenate them into one file.
+package com.example.xmlvalidator;
 
-However, note that **DER format** (Distinguished Encoding Rules) typically stores a **single certificate**. There's no standard for bundling multiple certificates into one single DER file. But, you could still combine them into a single file (non-standard) by following these steps:
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.reactive.function.server.RouterFunction;
+import org.springframework.web.reactive.function.server.ServerResponse;
 
-### Here's a way to do this:
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-1. **Split the Certificates** (If they're in PEM format):
-   If your certificates are currently in PEM format (text-based, `BEGIN CERTIFICATE...`), you'll need to first split them into individual files.
+import com.sun.org.apache.xerces.internal.parsers.XMLGrammarPreparser;
+import com.sun.org.apache.xerces.internal.xni.grammars.XMLGrammarPool;
+import com.sun.org.apache.xerces.internal.xni.parser.XMLInputSource;
+import com.sun.org.apache.xerces.internal.impl.xs.XMLSchemaValidator;
+import com.sun.org.apache.xerces.internal.xni.XMLString;
 
-   Use the following command to split the PEM certificates (similar to before):
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamReader;
 
-   ```bash
-   awk 'BEGIN {c=0;} /-----BEGIN CERTIFICATE-----/ {c++} {print > "cert" c ".pem"} /-----END CERTIFICATE-----/ {close("cert" c ".pem")}' your_file.pem
-   ```
+import java.io.ByteArrayInputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 
-   This will create multiple files, e.g., `cert1.pem`, `cert2.pem`, etc.
+import static org.springframework.web.reactive.function.server.RouterFunctions.route;
+import static org.springframework.web.reactive.function.server.ServerResponse.ok;
 
-2. **Convert Each PEM Certificate to DER Format**:
-   After splitting the certificates, you can convert each PEM file to DER format using `openssl`:
+@SpringBootApplication
+public class XmlValidatorApplication {
 
-   ```bash
-   openssl x509 -in cert1.pem -outform der -out cert1.der
-   openssl x509 -in cert2.pem -outform der -out cert2.der
-   # Repeat for each certificate...
-   ```
+    public static void main(String[] args) {
+        SpringApplication.run(XmlValidatorApplication.class, args);
+    }
 
-3. **Concatenate the DER Files**:
-   Once you have each certificate in DER format, you can concatenate them into one file:
+    @Bean
+    public RouterFunction<ServerResponse> routes(XmlValidationService xmlValidationService) {
+        return route()
+            .POST("/validate-xml", request ->
+                request.bodyToMono(String.class)
+                    .flatMap(xmlValidationService::validateXml)
+                    .flatMap(result -> ok().bodyValue(result))
+            )
+            .build();
+    }
 
-   ```bash
-   cat cert1.der cert2.der cert3.der > allcerts.der
-   ```
+    @Bean
+    public XMLGrammarPool xmlGrammarPool() throws Exception {
+        XMLGrammarPreparser preparser = new XMLGrammarPreparser();
+        preparser.registerPreparser(XMLGrammarDescription.XML_SCHEMA, null);
+        preparser.setProperty(GRAMMAR_POOL, new XMLGrammarPoolImpl());
+        
+        XMLInputSource xis = new XMLInputSource(null, getClass().getResource("/pain001.xsd").toString(), null);
+        preparser.preparseGrammar(XMLGrammarDescription.XML_SCHEMA, xis);
+        
+        return (XMLGrammarPool) preparser.getProperty(GRAMMAR_POOL);
+    }
 
-This will create a single file `allcerts.der` that contains multiple certificates in binary DER format. However, **it's non-standard** to bundle multiple DER certificates in one file like this, and many tools may not expect this format.
+    @Bean
+    public XMLInputFactory xmlInputFactory() {
+        XMLInputFactory factory = XMLInputFactory.newInstance();
+        factory.setProperty(XMLInputFactory.IS_COALESCING, false);
+        factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, false);
+        factory.setProperty(XMLInputFactory.IS_VALIDATING, false);
+        factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+        return factory;
+    }
 
-### Alternative: PKCS7/PKCS12 Format
-If you need a standard file that contains multiple certificates, it’s better to use the **PKCS#7** or **PKCS#12** format, which is specifically designed for bundling multiple certificates.
+    @Bean
+    public ExecutorService executorService() {
+        return Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    }
+}
 
-#### Using PKCS#7 (for bundling multiple certificates):
-1. Convert the PEM certificates to PKCS#7 format:
+@Service
+@Slf4j
+public class XmlValidationService {
 
-   ```bash
-   openssl crl2pkcs7 -nocrl -certfile your_file.pem -outform der -out bundle.p7b
-   ```
+    private final XMLGrammarPool grammarPool;
+    private final XMLInputFactory xmlInputFactory;
+    private final ExecutorService executorService;
 
-   The `bundle.p7b` file will be in DER format and can hold multiple certificates.
+    public XmlValidationService(XMLGrammarPool grammarPool, XMLInputFactory xmlInputFactory, ExecutorService executorService) {
+        this.grammarPool = grammarPool;
+        this.xmlInputFactory = xmlInputFactory;
+        this.executorService = executorService;
+    }
 
-#### Using PKCS#12 (for bundling certificates and keys):
-If you also need to include private keys, you can use PKCS#12 (`.p12` or `.pfx`):
+    public Mono<String> validateXml(String xmlFilePath) {
+        return Mono.fromCallable(() -> {
+            try (FileChannel fileChannel = FileChannel.open(Paths.get(xmlFilePath), StandardOpenOption.READ)) {
+                ByteBuffer buffer = ByteBuffer.allocateDirect(1024 * 1024); // 1MB buffer
+                XMLSchemaValidator validator = new XMLSchemaValidator();
+                validator.setGrammarPool(grammarPool);
 
-1. Convert the certificates to PKCS#12 format (including private key):
+                XMLStreamReader reader = xmlInputFactory.createXMLStreamReader(new ByteBufferInputStream(buffer));
 
-   ```bash
-   openssl pkcs12 -export -out bundle.p12 -in certfile.pem -inkey private_key.pem
-   ```
+                while (fileChannel.read(buffer) != -1 || buffer.position() > 0) {
+                    buffer.flip();
+                    while (reader.hasNext()) {
+                        int event = reader.next();
+                        switch (event) {
+                            case XMLStreamConstants.START_ELEMENT:
+                                validator.startElement(reader.getName(), null, null);
+                                for (int i = 0; i < reader.getAttributeCount(); i++) {
+                                    validator.attribute(reader.getAttributeName(i), null, reader.getAttributeValue(i), null);
+                                }
+                                break;
+                            case XMLStreamConstants.END_ELEMENT:
+                                validator.endElement(reader.getName(), null);
+                                break;
+                            case XMLStreamConstants.CHARACTERS:
+                                validator.characters(new XMLString(reader.getTextCharacters(), reader.getTextStart(), reader.getTextLength()));
+                                break;
+                        }
+                    }
+                    buffer.compact();
+                }
+                validator.endDocument(null);
+                return "XML is valid";
+            } catch (Exception e) {
+                log.error("XML validation error", e);
+                return "XML is invalid: " + e.getMessage();
+            }
+        }).subscribeOn(Schedulers.fromExecutor(executorService));
+    }
 
-Let me know if you need help with any particular step or format!
+    private static class ByteBufferInputStream extends InputStream {
+        private final ByteBuffer buf;
+        public ByteBufferInputStream(ByteBuffer buf) {
+            this.buf = buf;
+        }
+        public int read() {
+            if (!buf.hasRemaining()) {
+                return -1;
+            }
+            return buf.get() & 0xFF;
+        }
+        public int read(byte[] bytes, int off, int len) {
+            if (!buf.hasRemaining()) {
+                return -1;
+            }
+            len = Math.min(len, buf.remaining());
+            buf.get(bytes, off, len);
+            return len;
+        }
+    }
+}
